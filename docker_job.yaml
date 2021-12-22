@@ -1,0 +1,57 @@
+---
+resources:
+- name: src
+  type: git
+  check_every: 1m
+  source:
+    uri: https://github.com/umairyaquoob/concourse-test.git
+    branch: main
+- name: test-image
+  type: registry-image
+  source:
+    repository: umairyaquoob/test-image
+    tag: latest
+    username: umairyaquoob
+    password: ((docker-password))
+jobs:
+- name: create-image
+  plan:
+    - get: src
+      trigger: true
+    - task: build
+      privileged: true
+      config:
+        platform: linux
+        image_resource:
+          type: registry-image
+          source:
+            repository: concourse/oci-build-task
+        params:
+          DOCKERFILE: src/Dockerfile
+        inputs:
+        - name: src
+        outputs:
+        - name: image
+        run:
+          path: build
+    - task: scan
+      privileged: true
+      config:
+        platform: linux
+        image_resource:
+          type: registry-image
+          source:
+            repository: aquasec/trivy
+        inputs:
+        - name: image
+          path: .
+        run:
+          path: sh
+          args: 
+            - -ec
+            - |-
+              trivy image --input ./image.tar --exit-code 0 --severity UNKNOWN,LOW,MEDIUM --light
+              trivy image --input ./image.tar --exit-code 1 --severity HIGH,CRITICAL --light
+    - put: test-image
+      params:
+        image: image/image.tar
