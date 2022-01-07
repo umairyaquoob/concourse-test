@@ -1,3 +1,3 @@
 # concourse-test
 
-A repo to play around with concourse with docker
+A repo to play around with concourse with docker.
